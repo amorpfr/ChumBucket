@@ -17,5 +17,6 @@ def to_image(image_name):
 if __name__ == "__main__":
     images  = pd.read_csv("C://Users//AFR//Documents//GitHub//ChumBucket//data//train_onelabel.csv", encoding='utf-8')
     images['image_matrix'] = images['image'].apply(to_image)
-    images.to_pickle("C://Users//AFR//Documents//GitHub//ChumBucket//data//images.pkl")
+
+    #images.to_pickle("C://Users//AFR//Documents//GitHub//ChumBucket//data//images.pkl")
     

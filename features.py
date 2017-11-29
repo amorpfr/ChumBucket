@@ -81,7 +81,7 @@ def merge_features(featureset):
     feature_matrix = np.zeros((len(featureset), len(tmp1)))
     i=0
     for i in range(0, len(featureset)):
-        print(i/len(featureset))
+        #print(i/len(featureset))
         feature_matrix[i] = merge(featureset.iloc[i].tolist())
     return feature_matrix    
     
@@ -90,38 +90,35 @@ def merge(row):
     return merged
 
 def test(images):
-    
-    # test
-    train_features = images[['haralick','ratio']]
-    train_labels = images[['class']]
-    
-if __name__ == "__main__":
-    path = 'images.pkl'
-    images  = pd.read_pickle(path)
-    images['threshold'] = images['image_matrix'].apply(thresholding)
-    images['clean'] = images['image_matrix'].apply(clean)
-    
-    """
-    image_dan = images['clean'].iloc[0] 
-    image_tut = images['threshold'].iloc[0] 
-    image_ori = images['image_matrix'].iloc[0] 
-    """
-    
-    images['haralick'] = images['clean'].apply(haralick)
-    images['ratio'] = images['clean'].apply(getMinorMajorRatio)
-    
-    
-    
     features = images[['haralick','ratio']]
     features = merge_features(features)
     labels = images[['class']]
-    
     trainX, testX, trainY, y_true = train_test_split(features, labels, test_size=0.2, random_state=42)
-    
     clf = SGDClassifier(loss="hinge", penalty="l2")
     clf.fit(trainX, trainY)
     y_pred = clf.predict(testX)
-    accuracy = accuracy_score(y_true, y_pred, normalize = True)
+    accuracy = float(accuracy_score(y_true, y_pred, normalize =True))
+    return accuracy
+
+if __name__ == "__main__":
+    # load files
+    path = 'images_test_mixed.pkl'
+    images  = pd.read_pickle(path)
+    print("Images loaded")
     
+    # clean images
+    images['threshold'] = images['image_matrix'].apply(thresholding)
+    images['clean'] = images['image_matrix'].apply(clean)
+    print("Images cleaned")
+    
+    # extract features
+    images['haralick'] = images['clean'].apply(haralick)
+    images['ratio'] = images['clean'].apply(getMinorMajorRatio)
+    print("Features extracted")
+   
+    # test model
+    accuracy = test(images)
+    print("Training done, testing accuracy: ", accuracy)
+    print("") 
     
     

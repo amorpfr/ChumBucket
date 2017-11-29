@@ -10,13 +10,13 @@ import numpy as np
 import cv2
 
 def to_image(image_name):
-    path = 'C://Users//AFR//Documents//GitHub//ChumBucket//data//train_images//train_images//' + image_name
+    path = './data/train_images/' + image_name
     img = cv2.imread(path,0)
     return img
 
 if __name__ == "__main__":
-    images  = pd.read_csv("C://Users//AFR//Documents//GitHub//ChumBucket//data//train_onelabel.csv", encoding='utf-8')
+    images  = pd.read_csv("./data/train_onelabel.csv", encoding='utf-8')
     images['image_matrix'] = images['image'].apply(to_image)
-
-    #images.to_pickle("C://Users//AFR//Documents//GitHub//ChumBucket//data//images.pkl")
+    end_df = images[:100]   
+    end_df.to_pickle("images_test.pkl")
     

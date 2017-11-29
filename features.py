@@ -6,6 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import mahotas as mt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import SGDClassifier
+from sklearn.metrics import accuracy_score
+import itertools
 
 
 def thresholding(image):
@@ -20,14 +24,14 @@ def clean(image):
     imthr = np.where(image > np.mean(image),0.,1.0)
     plusje = np.where(image > np.mean(image),255.,0.)
     cleaned = image * imthr
-    cleaned = cleaned + plusje
+    #cleaned = cleaned + plusje
     cleaned = cleaned.astype(int)
     return cleaned
     
     
 def haralick(image):
     # calculate haralick texture features for 4 types of adjacency
-    textures = mt.features.haralick(image)
+    textures = mt.features.haralick(image, ignore_zeros= True)
 
     # take the mean of it and return it
     ht_mean = textures.mean(axis=0)
@@ -65,34 +69,59 @@ def getMinorMajorRatio(image):
     ratio = 0.0
     if ((not maxregion is None) and  (maxregion.major_axis_length != 0.0)):
         ratio = 0.0 if maxregion is None else  maxregion.minor_axis_length*1.0 / maxregion.major_axis_length
-    return ratio   
+    return np.array([ratio])  
 
 def getSize(image):
     shape = np.shape(image)
     return shape
 
+def merge_features(featureset):
+    tmp = featureset.iloc[0].tolist()
+    tmp1 = merge(tmp)
+    feature_matrix = np.zeros((len(featureset), len(tmp1)))
+    i=0
+    for i in range(0, len(featureset)):
+        print(i/len(featureset))
+        feature_matrix[i] = merge(featureset.iloc[i].tolist())
+    return feature_matrix    
+    
+def merge(row):
+    merged = np.concatenate(row)
+    return merged
+
+def test(images):
+    
+    # test
+    train_features = images[['haralick','ratio']]
+    train_labels = images[['class']]
+    
 if __name__ == "__main__":
-    path = 'images_test.pkl'
+    path = 'images.pkl'
     images  = pd.read_pickle(path)
     images['threshold'] = images['image_matrix'].apply(thresholding)
     images['clean'] = images['image_matrix'].apply(clean)
+    
+    """
     image_dan = images['clean'].iloc[0] 
     image_tut = images['threshold'].iloc[0] 
     image_ori = images['image_matrix'].iloc[0] 
+    """
     
-    plt.imshow(image_tut)
-    features_tut = {}
-    features_tut['haralick'] = haralick(image_tut)
-    features_tut['ratio'] = getMinorMajorRatio(image_tut)
+    images['haralick'] = images['clean'].apply(haralick)
+    images['ratio'] = images['clean'].apply(getMinorMajorRatio)
     
-    plt.imshow(image_dan)
-    features_dan = {}
-    features_dan['haralick'] = haralick(image_dan)
-    features_dan['ratio'] = getMinorMajorRatio(image_dan)
     
-    plt.imshow(image_ori)
-    features_ori = {}
-    features_ori['haralick'] = haralick(image_ori)
-    features_ori['ratio'] = getMinorMajorRatio(image_ori)
+    
+    features = images[['haralick','ratio']]
+    features = merge_features(features)
+    labels = images[['class']]
+    
+    trainX, testX, trainY, y_true = train_test_split(features, labels, test_size=0.2, random_state=42)
+    
+    clf = SGDClassifier(loss="hinge", penalty="l2")
+    clf.fit(trainX, trainY)
+    y_pred = clf.predict(testX)
+    accuracy = accuracy_score(y_true, y_pred, normalize = True)
+    
     
     

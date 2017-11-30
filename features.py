@@ -17,32 +17,6 @@ from sklearn.cross_validation import StratifiedKFold as KFold
 from sklearn.ensemble import RandomForestClassifier as RF
 
 
-def thresholding(image):
-    """
-    Program: Thresholding image following the tutorial
-    Input: Image
-    Output: Cleaned image
-    """
-    imthr = np.where(image > np.mean(image),0.,1.0)
-    imdilated = morphology.dilation(imthr, np.ones((4,4)))
-    labels = measure.label(imdilated)
-    labels = imthr * labels
-    labels = labels.astype(int)
-    return labels
-
-def clean(image):
-    """
-    Program: Cleaning image without diliated
-    Input: Image
-    Output: Cleaned image
-    """
-    imthr = np.where(image > np.mean(image),0.,1.0)
-    #plusje = np.where(image > np.mean(image),255.,0.)
-    cleaned = image * imthr
-    #cleaned = cleaned + plusje
-    cleaned = cleaned.astype(int)
-    return cleaned
-    
     
 def haralick(image):
     """
@@ -200,12 +174,10 @@ if __name__ == "__main__":
     print("Images loaded")
     
     # clean images
-    print('Cleaning images ...')
+    print('Resizing images ...')
     maxPixel = 25
     images['resized'] = images['image_matrix'].apply(resize_image)
-    images['threshold'] = images['image_matrix'].apply(thresholding)
-    images['clean'] = images['image_matrix'].apply(clean)
-    print("Images cleaned")
+    print("Images resized")
     
     # extract features
     print('Extracting features ...')

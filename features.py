@@ -11,6 +11,11 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.svm import LinearSVC
 from sklearn.metrics import log_loss
+from skimage.transform import resize
+from sklearn import cross_validation
+from sklearn.cross_validation import StratifiedKFold as KFold
+from sklearn.ensemble import RandomForestClassifier as RF
+
 
 def thresholding(image):
     """
@@ -45,6 +50,8 @@ def haralick(image):
     Input: Image
     Output: 13 haralick features (numpy array)
     """
+    image = image.copy()
+    image= image.astype(int)
     textures = mt.features.haralick(image, ignore_zeros= True)
 
     # take the mean of it and return it
@@ -130,6 +137,10 @@ def getSize(image):
     (x,y) = np.shape(image)
     return np.array([x,y])
 
+def resize_image(image):
+    image = resize(image, (maxPixel, maxPixel))
+    return image
+
 def merge_features(featureset):
     """
     Program: Merge features in one feature matrix
@@ -154,6 +165,10 @@ def merge(row):
     merged = np.concatenate(row)
     return merged
 
+def pixel_feature(image):
+    pixels = image.flatten()
+    return pixels
+
 def test(images, used_features):
     """
     Program: Computes the accuracy and logloss of a dataset consisisting images, features and classes
@@ -165,38 +180,46 @@ def test(images, used_features):
     labels = np.array(images['class'])
     trainX, testX, trainY, y_true = train_test_split(features, labels, test_size=0.2, random_state=42)
     #clf = LinearSVC(multi_class = "crammer_singer", random_state=0)
-    clf = SGDClassifier()
-    clf.fit(trainX, trainY)
-    y_pred = clf.predict(testX)
-    accuracy = float(accuracy_score(y_true, y_pred, normalize =True))
+    #clf = SGDClassifier()
+    clf = RF(n_estimators=100, n_jobs=3);
+    scores = cross_validation.cross_val_score(clf, features, labels, cv=5, n_jobs=1);
+    accuracy = np.mean(scores)
+    
+    
+    #clf.fit(trainX, trainY)
+    #y_pred = clf.predict(testX)
+    #accuracy = float(accuracy_score(y_true, y_pred, normalize =True))
     #logloss = float(log_loss(y_true, y_pred))
     return accuracy
 
 if __name__ == "__main__":
     # load files
     print('Loading images ...')
-    path = 'images_test_mixed.pkl'
+    path = 'images3000.pkl'
     images  = pd.read_pickle(path)
     print("Images loaded")
     
     # clean images
     print('Cleaning images ...')
+    maxPixel = 25
+    images['resized'] = images['image_matrix'].apply(resize_image)
     images['threshold'] = images['image_matrix'].apply(thresholding)
     images['clean'] = images['image_matrix'].apply(clean)
     print("Images cleaned")
     
     # extract features
     print('Extracting features ...')
-    used_images = 'clean'
+    used_images = 'resized'
     #used_images = 'threshold'
-    images['haralick'] = images[used_images].apply(haralick)
+    images['haralick'] = images['clean'].apply(haralick)
     images['ratio'] = images[used_images].apply(getMinorMajorRatio)
     images['image_size'] = images[used_images].apply(getSize)
+    images['pixels'] = images[used_images].apply(pixel_feature)
     print("Features extracted")
    
     # test model
     print('Training model ...')
-    features_to_use = ['haralick','ratio', 'image_size']
+    features_to_use = ['haralick', 'ratio', 'image_size', 'pixels']
     accuracy = test(images, features_to_use)
     print("")
     print("Training done, testing accuracy: ", accuracy)

@@ -76,6 +76,24 @@ def getMinorMajorRatio(image):
         ratio = 0.0 if maxregion is None else  maxregion.minor_axis_length*1.0 / maxregion.major_axis_length
     return np.array([ratio])  
 
+def get_important_region(image):
+    image = image.copy()
+    # Create the thresholded image to eliminate some of the background
+    imagethr = np.where(image > np.mean(image),0.,1.0)
+
+    #Dilate the image
+    imdilated = morphology.dilation(imagethr, np.ones((4,4)))
+
+    # Create the label list
+    label_list = measure.label(imdilated)
+    label_list = imagethr*label_list
+    label_list = label_list.astype(int)
+    
+    region_list = measure.regionprops(label_list)
+    maxregion = getLargestRegion(region_list, label_list, imagethr)
+
+    return maxregion
+
 def multiclass_log_loss(y_true, y_pred, eps=1e-15):
     """Multi class version of Logarithmic Loss metric.
     https://www.kaggle.com/wiki/MultiClassLogLoss
@@ -153,8 +171,18 @@ def pixel_feature(image):
     pixels = image.flatten()
     return pixels
 
+def zernike(image):
+    zernike_features = mt.features.zernike_moments(image, radius=20, degree=8)
+    return zernike_features
 
+def linear_binary_pattern(image):
+    lbp =   mt.features.lbp(image, radius=20, points=7, ignore_zeros=False)
+    return lbp
 
+def pftas(image):
+    pft = mt.features.pftas(image)
+    return pft
+    
 def get_dimension(image):
     """
     Program: Returns the largest dimension of the image
@@ -185,6 +213,16 @@ def test(images, used_features):
     return accuracy
     
 if __name__ == "__main__":
+    """
+    TO DO:
+        
+    - functie Resize(skimage) parameters  - rgl 114
+    - Voor haralick, zernike en binary pattern welke input meest geschikt
+    - Sift/Surf features
+    - code om beste set of features te bepalen
+    - code om beste beste classificatie te behalen bepalen
+    
+    """
     # load files
     print('Loading images ...')
     path = 'images500.pkl'
@@ -194,10 +232,10 @@ if __name__ == "__main__":
     # clean images
     print('Resizing images ...')
     max_shapes = images['image_matrix'].apply(get_dimension)
-    maxPixel = int(np.mean(max_shapes)) #max-accuracy 0.36, min-accuracy 0.36
+    #maxPixel = int(np.mean(max_shapes)) #max-accuracy 0.36, min-accuracy 0.36
     #maxPixel = int(np.max(max_shapes)) #max-accuracy 0.35, min-accuracy 0.34
     #maxPixel = int(np.min(max_shapes)) #max-accuracy 0.36, min-accuracy 0.35
-    #maxPixel = 25 # accuracy 0.38
+    maxPixel = 20 # accuracy 0.38
     images['resized'] = images['image_matrix'].apply(resize_image)
     print("Images resized")
     
@@ -205,15 +243,19 @@ if __name__ == "__main__":
     print('Extracting features ...')
     used_images = 'resized'
     #used_images = 'threshold'
-    images['haralick'] = images['clean'].apply(haralick)
-    images['ratio'] = images[used_images].apply(getMinorMajorRatio)
+    images['ratio'] = images['resized'].apply(getMinorMajorRatio)
+    images['pixels'] = images['resized'].apply(pixel_feature)
     images['image_size'] = images['clean'].apply(getSize)
-    images['pixels'] = images[used_images].apply(pixel_feature)
+    images['haralick'] = images['clean'].apply(haralick)
+    images['zernike'] = images['resized'].apply(zernike) #resized/threshold beste 
+    images['binary pattern'] = images['threshold'].apply(linear_binary_pattern) #threshold beste
+    #images['pftas'] = images['clean'].apply(pftas)
+    
     print("Features extracted")
    
     # test model
     print('Training model ...')
-    features_to_use = ['haralick', 'ratio', 'image_size', 'pixels']
+    features_to_use = ['haralick', 'ratio', 'image_size', 'pixels', 'zernike', 'binary pattern']
     accuracy = test(images, features_to_use)
     print("")
     print("Training done, testing accuracy: ", accuracy)

@@ -43,8 +43,8 @@ if __name__ == "__main__":
     images['image_matrix'] = images['image'].apply(to_image)
     images['threshold'] = images['image_matrix'].apply(thresholding)
     images['clean'] = images['image_matrix'].apply(clean)
-    end_df = images.sample(1000)
+    end_df = images.sample(500)
     #end_df = images[:100]   
-    end_df.to_pickle("images1000.pkl")
+    end_df.to_pickle("images500.pkl")
 
 

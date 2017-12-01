@@ -112,6 +112,11 @@ def getSize(image):
     return np.array([x,y])
 
 def resize_image(image):
+    """
+    Program: Resizes image based on global variable maxPixel
+    Input: image
+    Output: Resized(Squared) image
+    """
     image = resize(image, (maxPixel, maxPixel))
     return image
 
@@ -140,8 +145,25 @@ def merge(row):
     return merged
 
 def pixel_feature(image):
+    """
+    Program: Flattens the image to create features of the pixels
+    Input: image
+    Output: 1-d numpy array of pixels
+    """
     pixels = image.flatten()
     return pixels
+
+
+
+def get_dimension(image):
+    """
+    Program: Returns the largest dimension of the image
+    Input: image
+    Output: LArgest dimension 
+    """
+    shape = np.shape(image)
+    return min(shape)
+
 
 def test(images, used_features):
     """
@@ -159,23 +181,23 @@ def test(images, used_features):
     scores = cross_validation.cross_val_score(clf, features, labels, cv=5, n_jobs=1);
     accuracy = np.mean(scores)
     
-    
-    #clf.fit(trainX, trainY)
-    #y_pred = clf.predict(testX)
-    #accuracy = float(accuracy_score(y_true, y_pred, normalize =True))
     #logloss = float(log_loss(y_true, y_pred))
     return accuracy
-
+    
 if __name__ == "__main__":
     # load files
     print('Loading images ...')
-    path = 'images3000.pkl'
+    path = 'images500.pkl'
     images  = pd.read_pickle(path)
     print("Images loaded")
     
     # clean images
     print('Resizing images ...')
-    maxPixel = 25
+    max_shapes = images['image_matrix'].apply(get_dimension)
+    maxPixel = int(np.mean(max_shapes)) #max-accuracy 0.36, min-accuracy 0.36
+    #maxPixel = int(np.max(max_shapes)) #max-accuracy 0.35, min-accuracy 0.34
+    #maxPixel = int(np.min(max_shapes)) #max-accuracy 0.36, min-accuracy 0.35
+    #maxPixel = 25 # accuracy 0.38
     images['resized'] = images['image_matrix'].apply(resize_image)
     print("Images resized")
     
@@ -185,7 +207,7 @@ if __name__ == "__main__":
     #used_images = 'threshold'
     images['haralick'] = images['clean'].apply(haralick)
     images['ratio'] = images[used_images].apply(getMinorMajorRatio)
-    images['image_size'] = images[used_images].apply(getSize)
+    images['image_size'] = images['clean'].apply(getSize)
     images['pixels'] = images[used_images].apply(pixel_feature)
     print("Features extracted")
    

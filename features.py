@@ -208,9 +208,13 @@ def test(images, used_features):
     clf = RF(n_estimators=100, n_jobs=3);
     scores = cross_validation.cross_val_score(clf, features, labels, cv=5, n_jobs=1);
     accuracy = np.mean(scores)
-    
+    #print(np.shape(features))
+    #print(np.shape(labels))
+    #trainset = features
+    #trainset['class'] = labels
     #logloss = float(log_loss(y_true, y_pred))
-    return accuracy
+    trainset=4
+    return accuracy, trainset
     
 if __name__ == "__main__":
     """
@@ -218,7 +222,7 @@ if __name__ == "__main__":
         
     - functie Resize(skimage) parameters  - rgl 114
     - Voor haralick, zernike en binary pattern welke input meest geschikt
-    - Sift/Surf features
+    - Sift/Surf features 
     - code om beste set of features te bepalen
     - code om beste beste classificatie te behalen bepalen
     
@@ -237,6 +241,7 @@ if __name__ == "__main__":
     #maxPixel = int(np.min(max_shapes)) #max-accuracy 0.36, min-accuracy 0.35
     maxPixel = 20 # accuracy 0.38
     images['resized'] = images['image_matrix'].apply(resize_image)
+    images['region'] = images['image_matrix'].apply(get_important_region)
     print("Images resized")
     
     # extract features
@@ -255,8 +260,9 @@ if __name__ == "__main__":
    
     # test model
     print('Training model ...')
-    features_to_use = ['haralick', 'ratio', 'image_size', 'pixels', 'zernike', 'binary pattern']
-    accuracy = test(images, features_to_use)
+    features_to_use = ['haralick', 'zernike', 'binary pattern']
+    accuracy, trainset = test(images, features_to_use)
+    #trainset.to_pickle("train500.pkl")
     print("")
     print("Training done, testing accuracy: ", accuracy)
     print("") 

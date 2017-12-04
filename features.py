@@ -15,9 +15,42 @@ from skimage.transform import resize
 from sklearn import cross_validation
 from sklearn.cross_validation import StratifiedKFold as KFold
 from sklearn.ensemble import RandomForestClassifier as RF
-
-
     
+"""
+#######################################################################
+"""
+
+def pre_haralick(image):
+    
+    maxregion = get_important_region(image)
+    
+    small_img = image[maxregion.bbox[0]:maxregion.bbox[2],maxregion.bbox[1]:maxregion.bbox[3]]
+    noNoise = np.where(small_img > np.mean(image),0.,1.0)
+    
+    pre_haralick = small_img * noNoise
+    
+    return pre_haralick
+
+def superb(image):
+    
+    maxregion = get_important_region(image)
+    
+    small_img = image[maxregion.bbox[0]:maxregion.bbox[2],maxregion.bbox[1]:maxregion.bbox[3]]
+    noNoise = np.where(small_img > np.mean(image),0.,1.0)
+    plusje = np.where(small_img > np.mean(image),255.,0.)
+    perfect = (small_img * noNoise)+plusje
+    
+    superb = resize_image(perfect)
+#    superb = np.pad(klein, (5,5),'constant')
+#    superb[superb == 0] = 255    
+#    superb = np.where(superb > 250,0.,1.0)
+    return superb
+
+
+"""
+#######################################################################
+"""
+
 def haralick(image):
     """
     Program: calculate haralick texture features for 4 types of adjacency
@@ -135,7 +168,7 @@ def resize_image(image):
     Input: image
     Output: Resized(Squared) image
     """
-    image = resize(image, (maxPixel, maxPixel))
+    image = resize(image, (maxPixel, maxPixel), preserve_range= True)
     return image
 
 def merge_features(featureset):
@@ -172,11 +205,23 @@ def pixel_feature(image):
     return pixels
 
 def zernike(image):
-    zernike_features = mt.features.zernike_moments(image, radius=20, degree=8)
+    """
+    Radius is hetzelfde als straal. Aangezien de resized images 20*20 zijn,
+    is er een straal nodig van 14.14 nodig om met die straal ook in de hoeken
+    te komen.
+    
+    door cm = (10,10) toe te voegen veranderd er vrijwel niks
+    
+    Ook een border van 5pixels (255) rondom de images veranderd er niks. Ik
+    dacht dat dit wel invloed zou hebben omdat de radius (tov center of mass)
+    nu groter is dan de image lang en breed is.
+    """
+    
+    zernike_features = mt.features.zernike_moments(image, radius=15, degree=8)
     return zernike_features
 
 def linear_binary_pattern(image):
-    lbp =   mt.features.lbp(image, radius=20, points=7, ignore_zeros=False)
+    lbp =   mt.features.lbp(image, radius=20, points=7, ignore_zeros=True)
     return lbp
 
 def pftas(image):
@@ -229,7 +274,7 @@ if __name__ == "__main__":
     """
     # load files
     print('Loading images ...')
-    path = 'images500.pkl'
+    path = 'images1000.pkl'
     images  = pd.read_pickle(path)
     print("Images loaded")
     
@@ -239,32 +284,51 @@ if __name__ == "__main__":
     #maxPixel = int(np.mean(max_shapes)) #max-accuracy 0.36, min-accuracy 0.36
     #maxPixel = int(np.max(max_shapes)) #max-accuracy 0.35, min-accuracy 0.34
     #maxPixel = int(np.min(max_shapes)) #max-accuracy 0.36, min-accuracy 0.35
-    maxPixel = 20 # accuracy 0.38
-    images['resized'] = images['image_matrix'].apply(resize_image)
-    images['region'] = images['image_matrix'].apply(get_important_region)
+#    maxPixel = 20 # accuracy 0.38
+#    images['resized'] = images['image_matrix'].apply(resize_image)
+#    images['region'] = images['image_matrix'].apply(get_important_region)
+    images['superb'] = images['image_matrix'].apply(superb)
+    images['pre_haralick'] = images['image_matrix'].apply(pre_haralick)
     print("Images resized")
     
     # extract features
     print('Extracting features ...')
-    used_images = 'resized'
+#    used_images = 'resized'
     #used_images = 'threshold'
-    images['ratio'] = images['resized'].apply(getMinorMajorRatio)
-    images['pixels'] = images['resized'].apply(pixel_feature)
-    images['image_size'] = images['clean'].apply(getSize)
-    images['haralick'] = images['clean'].apply(haralick)
-    images['zernike'] = images['resized'].apply(zernike) #resized/threshold beste 
-    images['binary pattern'] = images['threshold'].apply(linear_binary_pattern) #threshold beste
+#    images['ratio'] = images['image_matrix'].apply(getMinorMajorRatio)
+#    images['pixels'] = images['resized'].apply(pixel_feature)
+#    images['image_size'] = images['superb'].apply(getSize)
+#    images['haralick'] = images['pre_haralick'].apply(haralick)
+#    images['zernike'] = images['superb'].apply(zernike) #resized/threshold beste 
+    images['binary_pattern'] = images['pre_haralick'].apply(linear_binary_pattern) #threshold beste
     #images['pftas'] = images['clean'].apply(pftas)
     
     print("Features extracted")
    
     # test model
     print('Training model ...')
-    features_to_use = ['haralick', 'zernike', 'binary pattern']
+    features_to_use = ['binary_pattern']
     accuracy, trainset = test(images, features_to_use)
     #trainset.to_pickle("train500.pkl")
     print("")
     print("Training done, testing accuracy: ", accuracy)
     print("") 
     
+    """
+    Heel veel informatie
     
+    Resize:
+        - Skimage resize werkt als volgt
+        Interpolatie, geeft het terug als % (0 tot 1)
+    
+    Zernike moments:
+        - https://www.pyimagesearch.com/2014/04/07/building-pokedex-python-indexing-sprites-using-shape-descriptors-step-3-6/
+        - http://www.tandfonline.com/doi/pdf/10.1007/s11806-007-0060-x
+        De grote zernike comparison
+        - Only resized: 0.28
+        - Only Superb: 0.25
+        - Superb+resized: 0.32
+        - resized maar binary: 0.27
+        - Superb+ resized+ set radius to 15: 0.34
+    
+    """

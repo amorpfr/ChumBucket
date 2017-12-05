@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import mahotas as mt
+import time
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
@@ -46,6 +47,24 @@ def superb(image):
 #    superb = np.where(superb > 250,0.,1.0)
     return superb
 
+def pre_haralick2(image):
+    """
+    wellicht deze voor haralick, zelfde als maxpooling, kan wellicht accuraccy
+    vergroten.
+    """
+    NoiseRemover = np.where(image > 250, 0., 1.)
+    pre_haralick2 = NoiseRemover * image
+        
+    return pre_haralick2
+
+def resize_image(image):
+    """
+    Program: Resizes image based on global variable maxPixel
+    Input: image
+    Output: Resized(Squared) image
+    """
+    image = resize(image, (maxPixel, maxPixel), preserve_range= True)
+    return image
 
 """
 #######################################################################
@@ -59,8 +78,9 @@ def haralick(image):
     """
     image = image.copy()
     image= image.astype(int)
-    textures = mt.features.haralick(image, ignore_zeros= True)
-
+    textures = mt.features.haralick(image)
+#    textures = mt.features.haralick(image, ignore_zeros= True)
+    
     # take the mean of it and return it
     ht_mean = textures.mean(axis=0)
     return ht_mean
@@ -162,15 +182,6 @@ def getSize(image):
     (x,y) = np.shape(image)
     return np.array([x,y])
 
-def resize_image(image):
-    """
-    Program: Resizes image based on global variable maxPixel
-    Input: image
-    Output: Resized(Squared) image
-    """
-    image = resize(image, (maxPixel, maxPixel), preserve_range= True)
-    return image
-
 def merge_features(featureset):
     """
     Program: Merge features in one feature matrix
@@ -221,7 +232,18 @@ def zernike(image):
     return zernike_features
 
 def linear_binary_pattern(image):
-    lbp =   mt.features.lbp(image, radius=20, points=7, ignore_zeros=True)
+    lbp =   mt.features.lbp(image, radius=8, points=4, ignore_zeros=False)
+    # 12 points werkt beter, maar veel meer computing time
+    return lbp
+
+def linear_binary_pattern2(image):
+    lbp =   mt.features.lbp(image, radius=8, points=8, ignore_zeros=False)
+    # 12 points werkt beter, maar veel meer computing time
+    return lbp
+
+def linear_binary_pattern3(image):
+    lbp =   mt.features.lbp(image, radius=8, points=12, ignore_zeros=False)
+    # 12 points werkt beter, maar veel meer computing time
     return lbp
 
 def pftas(image):
@@ -259,8 +281,14 @@ def test(images, used_features):
     #trainset['class'] = labels
     #logloss = float(log_loss(y_true, y_pred))
     trainset=4
-    return accuracy, trainset
     
+    # Kijken naar welke goed predict worden
+#    newlabel = pd.DataFrame(y_true, columns = ['pred'])
+#    newlabel.pred.hist(bins=121)
+    
+    return accuracy, trainset, scores
+
+
 if __name__ == "__main__":
     """
     TO DO:
@@ -272,6 +300,9 @@ if __name__ == "__main__":
     - code om beste beste classificatie te behalen bepalen
     
     """
+    
+    start_time = time.time()
+
     # load files
     print('Loading images ...')
     path = 'images1000.pkl'
@@ -280,39 +311,39 @@ if __name__ == "__main__":
     
     # clean images
     print('Resizing images ...')
-    max_shapes = images['image_matrix'].apply(get_dimension)
-    #maxPixel = int(np.mean(max_shapes)) #max-accuracy 0.36, min-accuracy 0.36
-    #maxPixel = int(np.max(max_shapes)) #max-accuracy 0.35, min-accuracy 0.34
-    #maxPixel = int(np.min(max_shapes)) #max-accuracy 0.36, min-accuracy 0.35
+#    max_shapes = images['image_matrix'].apply(get_dimension)
 #    maxPixel = 20 # accuracy 0.38
 #    images['resized'] = images['image_matrix'].apply(resize_image)
 #    images['region'] = images['image_matrix'].apply(get_important_region)
-    images['superb'] = images['image_matrix'].apply(superb)
-    images['pre_haralick'] = images['image_matrix'].apply(pre_haralick)
+#    images['superb'] = images['image_matrix'].apply(superb)
+#    images['pre_haralick'] = images['image_matrix'].apply(pre_haralick)
+#    images['pre_haralick2'] = images['superb'].apply(pre_haralick2)
     print("Images resized")
     
     # extract features
     print('Extracting features ...')
-#    used_images = 'resized'
-    #used_images = 'threshold'
-#    images['ratio'] = images['image_matrix'].apply(getMinorMajorRatio)
-#    images['pixels'] = images['resized'].apply(pixel_feature)
-#    images['image_size'] = images['superb'].apply(getSize)
-#    images['haralick'] = images['pre_haralick'].apply(haralick)
-#    images['zernike'] = images['superb'].apply(zernike) #resized/threshold beste 
-    images['binary_pattern'] = images['pre_haralick'].apply(linear_binary_pattern) #threshold beste
+
+    images['ratio'] = images['image_matrix'].apply(getMinorMajorRatio)
+    images['pixels'] = images['superb'].apply(pixel_feature)
+    images['image_size'] = images['pre_haralick'].apply(getSize)
+    images['haralick'] = images['pre_haralick2'].apply(haralick)
+    images['zernike'] = images['superb'].apply(zernike) #resized/threshold beste 
+    images['binary_pattern'] = images['threshold'].apply(linear_binary_pattern) #threshold beste
+    images['binary_pattern2'] = images['threshold'].apply(linear_binary_pattern2) #
+    images['binary_pattern3'] = images['threshold'].apply(linear_binary_pattern3)
     #images['pftas'] = images['clean'].apply(pftas)
     
     print("Features extracted")
    
     # test model
     print('Training model ...')
-    features_to_use = ['binary_pattern']
-    accuracy, trainset = test(images, features_to_use)
-    #trainset.to_pickle("train500.pkl")
+    features_to_use = ['binary_pattern', 'haralick', 'zernike', 'ratio', 'pixels', 'image_size', 'binary_pattern2', 'binary_pattern3']
+    accuracy, trainset, scores = test(images, features_to_use)
     print("")
     print("Training done, testing accuracy: ", accuracy)
     print("") 
+    
+    print("--- %s seconds ---" % (time.time() - start_time))
     
     """
     Heel veel informatie
@@ -330,5 +361,22 @@ if __name__ == "__main__":
         - Superb+resized: 0.32
         - resized maar binary: 0.27
         - Superb+ resized+ set radius to 15: 0.34
+        
+    Binary pattern:
+        - https://www.youtube.com/watch?v=wpAwdsubl1w
+        - Eigenlijk moet er gewone image als input in. Het beste zou zijn om
+          Maxregion toe te passen op originele image.
+          Echter werkt hij blijkbaar het best op threshold, ik denk vanwege 
+          de duidelijke contouren die duidelijke features teruggeven. Omdat de 
+          plankton steeds van een andere hoek worden gefotografeerd zijn
+          contouren makkelijker te herkennen. Anders heb je nogal snel last van
+          verschillende histogrammen (BoF) vanwege innerlijke ruis in plankton
+          lichaam zelf.
     
+    SIFT & SURF:
+        - https://stackoverflow.com/questions/10984313/opencv-2-4-1-computing-surf-descriptors-in-python
+        - http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_surf_intro/py_surf_intro.html
+        - https://www.codeproject.com/Articles/619039/Bag-of-Features-Descriptor-on-SIFT-Features-with-O
+        - http://mahotas.readthedocs.io/en/latest/surf.html
+        - https://ianlondon.github.io/blog/how-to-sift-opencv/
     """

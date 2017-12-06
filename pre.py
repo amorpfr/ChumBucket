@@ -8,10 +8,9 @@ from skimage.transform import resize
 
 def to_image(image_name):
 #    path = './data/train_images/' + image_name
-    path = 'C:/Users/daniel/Documents/AML Kaggle/train_images/' + image_name
+    path = 'C:/Users/daniel/Documents/AML Kaggle/test_images/' + image_name
     img = cv2.imread(path,0)
     return img
-
 
 def thresholding(image):
     """
@@ -95,7 +94,7 @@ def pre_haralick(image):
     
     return pre_haralick
 
-def superb(image):
+def pre_zernike(image):
     
     maxregion = get_important_region(image)
     
@@ -104,22 +103,29 @@ def superb(image):
     plusje = np.where(small_img > np.mean(image),255.,0.)
     perfect = (small_img * noNoise)+plusje
     
-    superb = resize_image(perfect)
-#    superb = np.pad(klein, (5,5),'constant')
-#    superb[superb == 0] = 255    
-#    superb = np.where(superb > 250,0.,1.0)
-    return superb
+    pre_zernike = resize_image(perfect)
 
+    return pre_zernike
 
 if __name__ == "__main__":
-    images  = pd.read_csv("./data/train_onelabel.csv", encoding='utf-8')
+    
+    # load files
+    print('Loading images ...')
+    images  = pd.read_csv("./data/sample.csv", encoding='utf-8')
+    print("Images loaded")
+    
+    # Preprocessing images
+    print('Pre-process images ...')
     images['image_matrix'] = images['image'].apply(to_image)
-    images['threshold'] = images['image_matrix'].apply(thresholding)
-    images['clean'] = images['image_matrix'].apply(clean)
-    images['superb'] = images['image_matrix'].apply(superb)
+#    images['threshold'] = images['image_matrix'].apply(thresholding)
+#    images['clean'] = images['image_matrix'].apply(clean)
+    images['pre_zernike'] = images['image_matrix'].apply(pre_zernike)
     images['pre_haralick'] = images['image_matrix'].apply(pre_haralick)
-    end_df = images.sample(500)
-    #end_df = images[:100]   
-    end_df.to_pickle("images500.pkl")
-
+    print("Images pre-processed")
+    
+    # Save files
+    print("Save images ...")
+#    end_df = images.sample(500)  
+    images.to_pickle("images_test.pkl")
+    print("Images saved")
 

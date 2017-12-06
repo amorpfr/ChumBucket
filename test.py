@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import pickle
-    
 def merge(row):
     """
     Program: Merge multiple numpy arrays in one numpy array

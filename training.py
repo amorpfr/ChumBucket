@@ -9,16 +9,59 @@ from sklearn.ensemble import RandomForestClassifier as RF
 from sklearn.naive_bayes import BernoulliNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.linear_model import LogisticRegressionCV
+from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import Perceptron
 from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import BaggingClassifier, RandomForestClassifier
+from sklearn import datasets
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.svm import SVC
 import pandas as pd
 import numpy as np
 import itertools
 import pickle
 
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    
+    
 def merge_features(featureset):
     """
     Program: Merge features in one feature matrix
@@ -63,9 +106,11 @@ def test(images, used_features, clf):
     """
     features = images[used_features]
     features = merge_features(features)
+    #(length, width) = np.shape(features)
     labels = np.array(images['class'])
-    trainX, testX, trainY, y_true = train_test_split(features, labels, test_size=0.2, random_state=42)
-    scores = cross_validation.cross_val_score(clf, features, labels, cv=5, n_jobs=1);
+    #trainX, testX, trainY, y_true = train_test_split(features, labels, test_size=0.2, random_state=42)
+    scores = cross_validation.cross_val_score(clf, features, labels, cv=2, n_jobs=1);
+    print(scores)
     accuracy = np.mean(scores)
     return accuracy
 
@@ -136,18 +181,25 @@ def analyzing_models(images):
     #  model list
     # canditates: LinearSVC(multi_class = "crammer_singer", random_state=0)
     # MLPClassifier(),  BernoulliNB(),   KNeighborsClassifier(n_neighbors=5),
-    models = [RF(n_estimators=100, n_jobs=3), 
-              #LogisticRegressionCV(multi_class="ovr", n_jobs=1, cv = 3),
-              #LogisticRegressionCV(),
-              ExtraTreesClassifier(n_estimators=100, n_jobs=3)
+    #   LogisticRegression(multi_class="ovr", n_jobs=1, verbose=True),
+    models = [RF(n_estimators=100, n_jobs=3,verbose=True),
+              #MLPClassifier(hidden_layer_sizes=(80, ),verbose=True),
+              #ExtraTreesClassifier(n_estimators=100, n_jobs=3, verbose=True)
               ]
     
-    model_names =['RandomForest','ExtraTrees']
+    #model_names =['RandomForest', 'Neural network', 'ExtraTrees']
+    model_names =['tree']
     
     #  feature list
-    available_features = ['haralick', 'zernike', 'binary pattern','ratio', 'pixels']
+    available_features = ['haralick', 
+                          'zernike', 
+                          'binary_pattern',
+                          'ratio', 
+                          'image_size'
+                          ]
     combi_features = combi_lists(available_features)     
-           
+    combi_features = [['haralick'], ['haralick', 'ratio']]
+    
     # accruacy datafream of accuracys    
     accuracy_df = compare_accuracy(images, combi_features, models, model_names)
     return accuracy_df
@@ -175,27 +227,81 @@ def train_model(images, used_features,outputpath):
     features_train = images[used_features]
     features_train = merge_features(features_train)
     labels = np.array(images['class'])
+    
+    """
+    class_names = set(labels)
+    trainX, testX, trainY, y_true = train_test_split(features_train, labels, test_size=0.2, random_state=42)
+    show = RF(n_estimators=100, n_jobs=3)
+    show_model = show.fit(trainX, trainY)
+    y_pred = show_model.predict(testX)
+    # Compute confusion matrix
+    cnf_matrix = confusion_matrix(y_true, y_pred)
+    np.set_printoptions(precision=2)
+    # Plot normalized confusion matrix
+    plt.figure()
+    plot_confusion_matrix(cnf_matrix, classes=class_names, normalize=False,
+                          title='Normalized confusion matrix')
+    
+    plt.show()
+    """
+
     clf = RF(n_estimators=100, n_jobs=3)
     model = clf.fit(features_train, labels) 
-    save_model(outputpath, model)
+    
+    return model
+    #save_model(outputpath, model)
+
+ 
+def create_submission(images_test, used_features, model, outputpath):
+    """
+    Program: Creates submission for kaggle
+    Input: test images, features and model
+    Output: submission dataframe and saves dataframe as csv
+    """
+    # features test set
+    features = images_test[used_features]
+    features = merge_features(features)
+    
+    # make submssion
+    submission  = pd.DataFrame() 
+    submission['image'] = images_test['image']
+    submission['class'] = model.predict(features)
+    submission.to_csv(outputpath, index = False)   
+    return submission        
     
 if __name__ == "__main__":
     
     # load files
     print('Loading images ...')
-    path = 'train100.pkl'
+    path = 'features_final.pkl'
     images  = pd.read_pickle(path)
+    images_test = pd.read_pickle('features_test.pkl')
     print("Images loaded")
     
+    
+    # lage classes weghalen
+    classes_count = images.groupby(['class']).count()
+    classes_count = classes_count.loc[classes_count.image > 40]
+    goede_classes = classes_count.index
+    df = images[images['class'].isin(goede_classes)]
+    
+    """
     # comparing models (comment code out when training)
+    # voor daniel
     accuracy_df = analyzing_models(images)
-         
+    accuracy_df.to_excel("accuracy_final.xlsx")  
+    """
+    
+    
     # create model(Run this when best model is determined)
-    """
-    used_features = ['haralick', 'zernike', 'binary pattern', 'ratio']
-    outpath = 'modelHZBR.pkl'
-    train_model(images, used_features, outpath)
-    """
-        
+    print("Training model ...")
+    used_features = ['haralick', 'zernike']
+    outpath = 'submission5.csv'
+    model = train_model(df, used_features, outpath)
+    print("Model trained ...")
+    
+    print("Create submission ...")
+    create_submission(images_test, used_features, model, outpath)
+    print("Submission created ...") 
             
         

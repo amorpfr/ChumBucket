@@ -1,6 +1,8 @@
 # ChumBucket
-Project Applied Machine Learning 2017 (Classifying Plankton species) <\br
-#### Note that the data of the train images are not included in this zip file for storage purposes.
+####Project Applied Machine Learning 2017 (Classifying Plankton species). 
+Plankton images were classified by extracting global(haralick, zernike, binary pattern, image_size and ratio) and local features(SURF). The code structured followed a pipelined proces of preprocessing, feature extraction, feature selection and model evaluation.
+#### Note that the data of the train/test images are not included in this repo due to storage limitations.
+##### Visit https://www.kaggle.com/c/1stdsbowl-in-class/data to download the data
 
 # Files
 The code for classyfing plankton species consists the following files:

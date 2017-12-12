@@ -23,7 +23,7 @@ Script that will train a model based on the train images and features.
 Script that evaluates the model on the test data and is able to create a submission for Kaggle.
 
 #### visualization.py
-Script to visualise results and others.
+Script that visualizes some evaluation metrics of the models. 
 
 
 # How to Run

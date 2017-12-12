@@ -1,6 +1,11 @@
+"""
+Script that can create a submission based on a trained model
+"""
+
 import pandas as pd
 import numpy as np
 import pickle
+
 def merge(row):
     """
     Program: Merge multiple numpy arrays in one numpy array
@@ -43,28 +48,24 @@ def create_submission(images_test, used_features, model):
     return submission    
 
 
-
 if __name__ == "__main__":
     
     # load model
     print('Loading model ...')
-    path = 'modelHZBR.pkl'
+    path = 'model.pkl'
     model_pkl = open(path, 'rb')
     model = pickle.load(model_pkl)
     print("Model loaded")
      
     # load test images
     print("Loading test images ...")
-    path_test1 = 'test1.pkl'
-    path_test2 = 'test2.pkl'
-    images_test1 = pd.read_pickle(path_test1)
-    images_test2 = pd.read_pickle(path_test2)
-    images_test = images_test1.append(images_test2, ignore_index=True)
+    path_test = 'test.pkl'
+    images_test = pd.read_pickle(path_test)
     print("Loading test images")
     
     # create submission
     print("Making submission ...")
-    used_features = ['haralick', 'zernike', 'binary pattern', 'ratio']
+    used_features = ['haralick', 'zernike', 'binary pattern', 'ratio', 'surf', 'image_size']
     submission = create_submission(images_test, used_features, model)  
     print("Submission done")
     

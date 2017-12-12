@@ -1,36 +1,14 @@
+"""
+Retrieves different global and local features from pre-processed plankton
+images and saves them to a dataframe.
+"""
 from skimage import morphology
 from skimage import measure
 import pandas as pd
-import pprint as pp
 import numpy as np
-import matplotlib.pyplot as plt
-import cv2
 import mahotas as mt
 import time
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import SGDClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.svm import LinearSVC
-from sklearn.metrics import log_loss
-from skimage.transform import resize
-from sklearn import cross_validation
-from sklearn.cross_validation import StratifiedKFold as KFold
-from sklearn.ensemble import RandomForestClassifier as RF
-    
-def haralick(image):
-    """
-    Program: calculate haralick texture features for 4 types of adjacency
-    Input: Image
-    Output: 13 haralick features (numpy array)
-    """
-    image = image.copy()
-    image= image.astype(int)
-#    textures = mt.features.haralick(image)
-    textures = mt.features.haralick(image, ignore_zeros= True)
-    
-    # take the mean of it and return it
-    ht_mean = textures.mean(axis=0)
-    return ht_mean
+
 
 def getLargestRegion(props, labelmap, imagethres):
     """
@@ -77,6 +55,12 @@ def getMinorMajorRatio(image):
     return np.array([ratio])  
 
 def get_important_region(image):
+    """
+    Program: Retrieves upper and lower boundary of height and width of
+    largest object in image
+    Input: Image
+    Output: Coordinates of object outline(numpy array)
+    """
     image = image.copy()
     # Create the thresholded image to eliminate some of the background
     imagethr = np.where(image > np.mean(image),0.,1.0)
@@ -103,30 +87,6 @@ def getSize(image):
     (x,y) = np.shape(image)
     return np.array([x,y])
 
-def merge_features(featureset):
-    """
-    Program: Merge features in one feature matrix
-    Input: Dataframe of features
-    Output: Numpy matrix of merged features
-    """
-    tmp = featureset.iloc[0].tolist()
-    tmp1 = merge(tmp)
-    feature_matrix = np.zeros((len(featureset), len(tmp1)))
-    i=0
-    for i in range(0, len(featureset)):
-        #print(i/len(featureset))
-        feature_matrix[i] = merge(featureset.iloc[i].tolist())
-    return feature_matrix    
-    
-def merge(row):
-    """
-    Program: Merge multiple numpy arrays in one numpy array
-    Input: List of numpy arrays
-    Output: One numpy array of the merged arrays
-    """
-    merged = np.concatenate(row)
-    return merged
-
 def pixel_feature(image):
     """
     Program: Flattens the image to create features of the pixels
@@ -135,6 +95,19 @@ def pixel_feature(image):
     """
     pixels = image.flatten()
     return pixels
+
+def haralick(image):
+    """
+    Program: calculate haralick texture features for 4 types of adjacency
+    Input: Image
+    Output: 13 haralick features (numpy array)
+    """
+    image = image.copy()
+    image= image.astype(int)
+    textures = mt.features.haralick(image, ignore_zeros= True)
+    
+    ht_mean = textures.mean(axis=0)
+    return ht_mean
 
 def zernike(image):
     """
@@ -147,36 +120,30 @@ def zernike(image):
     return zernike_features
 
 def linear_binary_pattern(image):
+    """
+    Program: Computes the binary code for each pixel using a certain radius
+    around that pixel and a certain amount of evenly-spaced points on that radius.
+    Input: pre_haralick image
+    Output: Histogram of binary codes.
+    """
     lbp =   mt.features.lbp(image, radius=4, points=4, ignore_zeros=False)
-    # 12 points werkt beter, maar veel meer computing time
     return lbp
 
 def linear_binary_pattern2(image):
+    """
+    Program: Same as the function above but with a different radius and a
+    different amount of points.
+    """
     lbp =   mt.features.lbp(image, radius=8, points=8, ignore_zeros=False)
-    # 12 points werkt beter, maar veel meer computing time
     return lbp
 
 def linear_binary_pattern3(image):
+    """
+    Program: Same as the function above but with a different radius and a
+    different amount of points.
+    """
     lbp =   mt.features.lbp(image, radius=8, points=12, ignore_zeros=False)
-    # 12 points werkt beter, maar veel meer computing time
     return lbp
-
-def test(images, used_features):
-    """
-    Program: Computes the accuracy of a dataset consisisting images, features and classes
-    Input: Dataframe consisting all data, list of names of features to be used
-    Output: Accuracy
-    """
-    features = images[used_features]
-    features = merge_features(features)
-    labels = np.array(images['class'])
-    
-    clf = RF(n_estimators=100, n_jobs=3);
-    scores = cross_validation.cross_val_score(clf, features, labels, cv=5, n_jobs=1);
-    accuracy = np.mean(scores)
-
-    return accuracy
-
 
 if __name__ == "__main__":
     
@@ -184,7 +151,7 @@ if __name__ == "__main__":
 
     # load files
     print('Loading images ...')
-    path = 'images_test.pkl'
+    path = 'preprocessed.pkl'
     images  = pd.read_pickle(path)
     print("Images loaded")
     
@@ -192,7 +159,7 @@ if __name__ == "__main__":
     print('Extracting features ...')
 
     images['ratio'] = images['image_matrix'].apply(getMinorMajorRatio)
-#    images['pixels'] = images['superb'].apply(pixel_feature)
+    images['pixels'] = images['superb'].apply(pixel_feature)
     images['image_size'] = images['pre_haralick'].apply(getSize)
     print("Feature size extracted")
     images['haralick'] = images['pre_haralick'].apply(haralick)
@@ -202,23 +169,16 @@ if __name__ == "__main__":
     images['binary_pattern_small'] = images['pre_haralick'].apply(linear_binary_pattern) 
     print("Feature binary pattern small extracted")
     images['binary_pattern'] = images['pre_haralick'].apply(linear_binary_pattern2) 
-#    images['binary_pattern_big'] = images['threshold'].apply(linear_binary_pattern3)    
+    images['binary_pattern_big'] = images['threshold'].apply(linear_binary_pattern3)    
     print("Features extracted")
    
-    # test model
-    print('Training model ...')
-#    features_to_use = ['ratio','image_size','haralick','zernike','binary_pattern', 'binary_pattern_small']
-#    accuracy = test(images, features_to_use)
-    print("")
-#    print("Training done, testing accuracy: ", accuracy)
-    print("") 
     
     # Create pickle
     print('Creating pickle ...')
     del images['image_matrix']
     del images['pre_zernike']
     del images['pre_haralick']
-    images.to_pickle('features_test.pkl')
+    images.to_pickle('features.pkl')
     print('Pickle created')
-    
+
     print("--- %s seconds ---" % (time.time() - start_time))

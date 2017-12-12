@@ -1,5 +1,8 @@
+"""
+This script pre-processes the images, cleaning them and computing feature-
+specific images.
+"""
 import pandas as pd
-import pprint as pp
 import numpy as np
 import cv2
 from skimage import morphology
@@ -7,36 +10,17 @@ from skimage import measure
 from skimage.transform import resize
 
 def to_image(image_name):
-#    path = './data/train_images/' + image_name
-    path = 'C:/Users/daniel/Documents/AML Kaggle/test_images/' + image_name
+    """
+    Program: Converts image path to image 
+    Input: Image name
+    Output: Image as numpy matrix
+    """    
+    if test:
+        path = './data/test_images/' + image_name
+    else:
+        path = './data/train_images/' + image_name
     img = cv2.imread(path,0)
     return img
-
-def thresholding(image):
-    """
-    Program: Thresholding image following the tutorial
-    Input: Image
-    Output: Cleaned image
-    """
-    imthr = np.where(image > np.mean(image),0.,1.0)
-    imdilated = morphology.dilation(imthr, np.ones((4,4)))
-    labels = measure.label(imdilated)
-    labels = imthr * labels
-    labels = labels.astype(int)
-    return labels
-
-def clean(image):
-    """
-    Program: Cleaning image without diliated
-    Input: Image
-    Output: Cleaned image
-    """
-    imthr = np.where(image > np.mean(image),0.,1.0)
-    #plusje = np.where(image > np.mean(image),255.,0.)
-    cleaned = image * imthr
-    #cleaned = cleaned + plusje
-    cleaned = cleaned.astype(int)
-    return cleaned
 
 def getLargestRegion(props, labelmap, imagethres):
     """
@@ -56,6 +40,12 @@ def getLargestRegion(props, labelmap, imagethres):
     return regionmaxprop
 
 def get_important_region(image):
+    """
+    Program: Retrieves upper and lower boundary of height and width of
+    largest object in image
+    Input: Image
+    Output: Coordinates of object outline(numpy array)
+    """
     image = image.copy()
     # Create the thresholded image to eliminate some of the background
     imagethr = np.where(image > np.mean(image),0.,1.0)
@@ -73,18 +63,21 @@ def get_important_region(image):
 
     return maxregion
 
-def resize_image(image):
+def resize_image(image, resWidth, resHeight):
     """
-    Program: Resizes image based on global variable maxPixel
+    Program: Resizes image based on height and width input
     Input: image
     Output: Resized(Squared) image
     """
-    maxPixel = 20
-    image = resize(image, (maxPixel, maxPixel), preserve_range= True)
+    image = resize(image, (resWidth, resHeight), preserve_range= True, mode='wrap')
     return image
 
 def pre_haralick(image):
-    
+    """
+    Program: Thresholds image, retrieves largest object and set background value to 0
+    Input: image
+    Output: Prepared image to retrieve haralick features
+    """
     maxregion = get_important_region(image)
     
     small_img = image[maxregion.bbox[0]:maxregion.bbox[2],maxregion.bbox[1]:maxregion.bbox[3]]
@@ -95,6 +88,11 @@ def pre_haralick(image):
     return pre_haralick
 
 def pre_zernike(image):
+    """
+    Program: Thresholds image, retrieves largest object and resizes image
+    Input: image
+    Output: Prepared image to retrieve zernike features
+    """
     
     maxregion = get_important_region(image)
     
@@ -103,29 +101,63 @@ def pre_zernike(image):
     plusje = np.where(small_img > np.mean(image),255.,0.)
     perfect = (small_img * noNoise)+plusje
     
-    pre_zernike = resize_image(perfect)
+    resWidth = 20
+    resHeight = 20
+    pre_zernike = resize_image(perfect, resWidth, resHeight)
 
     return pre_zernike
+
+def pre_surf(image):
+    """
+    Program: Threshold image, retrieves largest object, subtracts minimum and 
+    resizes image
+    Input: image
+    Output: Prepared image to retrieve SURF features
+    """
+    maxregion = get_important_region(image)
+    
+    small_img = image[maxregion.bbox[0]:maxregion.bbox[2],maxregion.bbox[1]:maxregion.bbox[3]]
+    noNoise = np.where(small_img > np.mean(image),0.,1.0)
+    plusje = np.where(small_img > np.mean(image),255.,0.)
+    minimum = np.min(small_img)
+    
+    cleaned = (small_img * noNoise) + plusje - minimum
+
+    resWidth = 100
+    resHeight = np.floor(resWidth / (float(image.shape[0])/image.shape[1]))
+    
+    pre_surf = resize_image(cleaned, resWidth, resHeight)
+    
+    return pre_surf
+
 
 if __name__ == "__main__":
     
     # load files
     print('Loading images ...')
-    images  = pd.read_csv("./data/sample.csv", encoding='utf-8')
+    
+    # if run on test-set set test =True
+    test = False
+    
+    # train images
+    images  = pd.read_csv("./data/train_onelabel.csv", encoding='utf-8')
+    
+    # test images
+    #images  = pd.read_csv("./data/sample.csv", encoding='utf-8')
+    
+    images['image_matrix'] = images['image'].apply(to_image)
     print("Images loaded")
     
     # Preprocessing images
     print('Pre-process images ...')
-    images['image_matrix'] = images['image'].apply(to_image)
-#    images['threshold'] = images['image_matrix'].apply(thresholding)
-#    images['clean'] = images['image_matrix'].apply(clean)
     images['pre_zernike'] = images['image_matrix'].apply(pre_zernike)
     images['pre_haralick'] = images['image_matrix'].apply(pre_haralick)
+    images['pre_surf1'] = images['image_matrix'].apply(pre_surf)
     print("Images pre-processed")
     
     # Save files
     print("Save images ...")
-#    end_df = images.sample(500)  
-    images.to_pickle("images_test.pkl")
+    #sampled_images = images.sample(500)  
+    images.to_pickle("preprocessed.pkl")
     print("Images saved")
 

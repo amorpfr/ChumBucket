@@ -31,9 +31,11 @@ For the training set
 1. Run pre.py (set test=False) 	-> 	input: image paths, output: preprocess.pkl 
 2. Run surf.py 			-> 	input: preprocess.pkl, output: surf.pkl 
 3. Run features.py 		-> 	input: surf.pkl, output: features.pkl 
-4. Run training.py 		->	input: features.pkl, output: model.pkl 
+4. Run training.py 		->	input: features.pkl, output: model.pkl
+ 
 
 For the test set
+
 5. Run pre.py (set test=True) 	-> 	input: image paths, output: preprocess_test.pkl 
 6. Run surf.py 			-> 	input: preprocess_test.pkl, output: surf_test.pkl 
 7. Run features.py 		-> 	input: surf_test.pkl, output: features_test.pkl 
